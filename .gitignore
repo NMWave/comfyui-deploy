@@ -1,2 +1,10 @@
 __pycache__
 .DS_Store
+Keys.txt
+Keys
+web/.env.example
+web/.env.example.env
+web/.env.example.txt
+builder/.env
+builder/.env.env
+builder/.env.txt
