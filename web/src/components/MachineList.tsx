@@ -100,7 +100,6 @@ export const columns: ColumnDef<Machine>[] = [
     },
     cell: ({ row }) => {
       return (
-        // <a className="hover:underline" href={`/${row.original.id}`}>
         <div className="flex flex-row gap-2 items-center truncate">
           <a href={`/machines/${row.original.id}`} className="hover:underline">
             {row.getValue("name")}
@@ -124,7 +123,6 @@ export const columns: ColumnDef<Machine>[] = [
             </Badge>
           )}
         </div>
-        // </a>
       );
     },
   },
@@ -171,7 +169,6 @@ export const columns: ColumnDef<Machine>[] = [
       </div>
     ),
   },
-
   {
     id: "actions",
     enableHiding: false,
@@ -345,16 +342,6 @@ export function MachineList({
         <div className="ml-auto flex gap-2">
           <InsertModal
             dialogClassName="sm:max-w-[600px]"
-            disabled={
-              data.some(
-                (machine) => machine.type === "comfy-deploy-serverless"
-              ) && !userMetadata.betaFeaturesAccess
-            }
-            tooltip={
-              data.some((machine) => machine.type === "comfy-deploy-serverless")
-                ? "Only one hosted machine at preview stage"
-                : undefined
-            }
             title="New Machine"
             description="Add custom ComfyUI machines to your account."
             serverAction={addCustomMachine}
@@ -381,12 +368,8 @@ export function MachineList({
                 },
               },
               gpu: {
-                fieldType: !userMetadata.betaFeaturesAccess
-                  ? "fallback"
-                  : "select",
-                inputProps: {
-                  disabled: !userMetadata.betaFeaturesAccess,
-                },
+                fieldType: "select",
+                inputProps: {},
               },
             }}
           />
