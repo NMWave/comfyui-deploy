@@ -7,6 +7,11 @@ import urllib.parse
 from pydantic import BaseModel
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # deploy_test = False
 
@@ -115,8 +120,6 @@ def check_server(url, retries=50, delay=500):
         except requests.RequestException as e:
             # If an exception occurs, the server may not be ready
             pass
-
-        # print(f"runpod-worker-comfy - trying")
 
         # Wait for the specified delay before retrying
         time.sleep(delay / 1000)
@@ -232,12 +235,26 @@ def run(input: Input):
 
 @web_app.post("/run")
 async def bar(request_input: RequestInput):
-    # print(request_input)
+    logger.info("POST /run endpoint accessed with data: %s", request_input)
     if not deploy_test:
         run.spawn(request_input.input)
+        logger.info("Processed /run request successfully.")
         return {"status": "success"}
-    # pass
 
+@web_app.get("/")
+async def health_check():
+    logger.info("Health check endpoint accessed.")
+    return {"status": "API is up and running"}
+
+is_ready = True  # Toggle based on your application's state
+
+@web_app.get("/not-ready")
+async def not_ready():
+    logger.info("Not-ready endpoint accessed.")
+    if is_ready:
+        return {"status": "API is ready"}
+    else:
+        raise HTTPException(status_code=503, detail="API is not ready")
 
 @stub.function(image=image)
 @asgi_app()
