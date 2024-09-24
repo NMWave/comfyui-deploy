@@ -1,9 +1,0 @@
-Clerk -
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_Y2FwYWJsZS10cmVlZnJvZy0yMC5jbGVyay5hY2NvdW50cy5kZXYk
-CLERK_SECRET_KEY=sk_test_4lI0gD4qPmZsS2C8NIoXrcCeFiakTAdDPjC4kcCoLn
-
-Neon (POSTGRESQL DB) used for vercel db - 
-postgresql://comfydeploydb_owner:5zwRZntXEKh2@ep-wispy-heart-a5m2ryqz.us-east-2.aws.neon.tech/comfydeploydb?sslmode=require
-
-Modal -
-modal token set --token-id ak-KIQ7WfNM3DBS9YY13qLn2q --token-secret as-3yvewO8phqsY4OBFYprNcu 

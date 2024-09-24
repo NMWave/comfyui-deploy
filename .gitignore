@@ -13,6 +13,8 @@ web/.env.*.local
 #Ignore .env files in builder directory
 builder/.env
 builder/.env.env
+builder/.env.example.env
+builder/.env.example
 builder/.env.txt
 
 # Ignore log files
