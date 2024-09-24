@@ -6,11 +6,21 @@
     // "source.organizeImports.biome": "explicit"
   },
   "typescript.preferences.importModuleSpecifier": "non-relative",
-  "spellright.language": ["en"],
-  "spellright.documentTypes": ["markdown", "typescript", "typescriptreact"],
+  "spellright.language": [
+    "en"
+  ],
+  "spellright.documentTypes": [
+    "markdown",
+    "typescript",
+    "typescriptreact"
+  ],
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
-  ]
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*).*?[\"'`]"
+    ]
+  ],
+  "CodeGPT.apiKey": "CodeGPT Plus Beta"
   // "eslint.workingDirectories": [
   //   { "mode": "auto" }
   // ],

@@ -1,2 +1,22 @@
 __pycache__
 .DS_Store
+Keys.txt
+Keys
+
+#Ignore .env files in web directory
+web/.env.example
+web/.env.example.env
+web/.env.example.txt
+web/.env.local
+web/.env.*.local
+
+#Ignore .env files in builder directory
+builder/.env
+builder/.env.env
+builder/.env.txt
+
+# Ignore log files
+*.log
+
+# Ignore node_modules directory
+web/node_modules
