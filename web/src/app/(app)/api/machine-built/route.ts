@@ -1,10 +1,10 @@
-import { parseDataSafe } from "../../../../lib/parseDataSafe";
-import { db } from "@/db/db";
-import { machinesTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { revalidatePath } from 'next/cache';
+import jwt from 'jsonwebtoken';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { parseDataSafe } from '../../../../lib/parseDataSafe';
+import { db } from '@/db/db';
+import { machinesTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 const RequestSchema = z.object({
   machine_id: z.string(),
@@ -12,9 +12,50 @@ const RequestSchema = z.object({
   build_log: z.string().optional(),
 });
 
+const MachineJWTSchema = z.object({
+  machine_id: z.string(),
+  endpoint: z.string().optional(),
+  iat: z.number(),
+  // Add other expected fields if necessary
+});
+
+type MachineJWT = z.infer<typeof MachineJWTSchema>;
+
 export async function POST(request: Request) {
   console.log("Received machine-built callback");
   
+  // Extract and verify JWT
+  const authHeader = request.headers.get("Authorization");
+  const secret = process.env.JWT_SECRET;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.error("Missing or malformed Authorization header");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  let decoded: unknown;
+  try {
+    decoded = jwt.verify(token, secret);
+  } catch (err) {
+    console.error("JWT verification failed:", err);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const parseJWT = MachineJWTSchema.safeParse(decoded);
+  if (!parseJWT.success) {
+    console.error("Invalid JWT payload:", parseJWT.error);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const jwtPayload: MachineJWT = parseJWT.data;
+
+  // Optionally, you can verify that the machine_id in JWT matches the request body
+  // if (jwtPayload.machine_id !== data.machine_id) {
+  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // }
+
   const [data, error] = await parseDataSafe(RequestSchema, await request.json());
   if (!data || error) {
     console.error("Error parsing request data:", error);
@@ -45,7 +86,8 @@ export async function POST(request: Request) {
       console.log(`Machine ${machine_id} updated to error status`);
     }
 
-    revalidatePath("/machines");
+    // Revalidate the machines page (optional)
+    // revalidatePath("/machines");
 
     return NextResponse.json({ message: "Machine status updated successfully" }, { status: 200 });
   } catch (error) {
