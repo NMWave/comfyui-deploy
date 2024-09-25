@@ -181,51 +181,54 @@ async function _buildMachine(
   b: MachineType
 ) {
   const headersList = headers();
-
   const domain = headersList.get("x-forwarded-host") || "";
   const protocol = headersList.get("x-forwarded-proto") || "";
 
-  if (domain === "") {
-    throw new Error("No domain");
+  if (!domain) {
+    throw new Error("No domain found in headers");
   }
 
-  // Call remote builder
-  const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/create`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      machine_id: b.id,
-      name: b.id,
-      snapshot: data.snapshot, //JSON.parse( as string),
-      callback_url: `${protocol}://${domain}/api/machine-built`,
-      models: data.models, //JSON.parse(data.models as string),
-      gpu: data.gpu && data.gpu.length > 0 ? data.gpu : "T4",
-    }),
-  });
+  try {
+    const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        machine_id: b.id,
+        name: b.id,
+        snapshot: data.snapshot,
+        callback_url: `${protocol}://${domain}/api/machine-built`,
+        models: data.models,
+        gpu: data.gpu && data.gpu.length > 0 ? data.gpu : "T4",
+      }),
+    });
 
-  if (!result.ok) {
-    const error_log = await result.text();
-    await db
-      .update(machinesTable)
-      .set({
-        ...data,
-        status: "error",
-        build_log: error_log,
-      })
-      .where(eq(machinesTable.id, b.id));
-    throw new Error(`Error: ${result.statusText} ${error_log}`);
-  } else {
-    // setting the build machine id
+    if (!result.ok) {
+      const error_log = await result.text();
+      await db
+        .update(machinesTable)
+        .set({
+          status: "error",
+          build_log: error_log,
+        })
+        .where(eq(machinesTable.id, b.id));
+      throw new Error(`Error creating app in Modal: ${result.statusText} ${error_log}`);
+    }
+
     const json = await result.json();
     await db
       .update(machinesTable)
       .set({
-        ...data,
         build_machine_instance_id: json.build_machine_instance_id,
+        status: "building",
       })
       .where(eq(machinesTable.id, b.id));
+
+    return json;
+  } catch (error) {
+    console.error("Error in _buildMachine:", error);
+    throw error;
   }
 }
 
@@ -256,7 +259,7 @@ export const deleteMachine = withServerPromise(
 
     if (machine.type === "comfy-deploy-serverless") {
       try {
-        const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/stop-app`, {
+        const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/delete-app`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -268,18 +271,19 @@ export const deleteMachine = withServerPromise(
 
         if (!result.ok) {
           const error_log = await result.text();
-          throw new Error(`Error stopping app: ${result.statusText} ${error_log}`);
+          throw new Error(`Error deleting app from Modal: ${result.statusText} ${error_log}`);
         }
       } catch (error) {
-        console.error("Error stopping serverless app:", error);
-        // Continue with deletion even if stopping fails
+        console.error("Error deleting serverless app from Modal:", error);
+        // We might want to consider not continuing with deletion if this fails
+        throw new Error("Failed to delete app from Modal");
       }
     }
 
     try {
       await db.delete(machinesTable).where(eq(machinesTable.id, machine_id));
       revalidatePath("/machines");
-      return { message: "Machine Deleted" };
+      return { message: "Machine Deleted Successfully" };
     } catch (error) {
       console.error("Error deleting machine from database:", error);
       throw new Error("Failed to delete machine from database");
