@@ -6,14 +6,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { revalidatePath } from 'next/cache';
 
-import { parseDataSafe } from "../../../../lib/parseDataSafe";
-import { db } from "@/db/db";
-import { machinesTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { NextResponse } from "next/server";
-import { revalidatePath } from 'next/cache';
-import { z } from "zod";
-
 const RequestSchema = z.object({
   machine_id: z.string(),
   endpoint: z.string().optional(),
