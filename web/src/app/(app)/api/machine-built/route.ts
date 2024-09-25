@@ -6,12 +6,14 @@ import { db } from '@/db/db';
 import { machinesTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+// Define Zod schema for request body
 const RequestSchema = z.object({
   machine_id: z.string(),
   endpoint: z.string().optional(),
   build_log: z.string().optional(),
 });
 
+// Define Zod schema for JWT payload
 const MachineJWTSchema = z.object({
   machine_id: z.string(),
   endpoint: z.string().optional(),
@@ -34,6 +36,12 @@ export async function POST(request: Request) {
   }
 
   const token = authHeader.split(" ")[1];
+
+  // **Ensure 'secret' is defined**
+  if (!secret) {
+    console.error("JWT_SECRET environment variable is not set.");
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 
   let decoded: unknown;
   try {
@@ -59,7 +67,7 @@ export async function POST(request: Request) {
   const [data, error] = await parseDataSafe(RequestSchema, await request.json());
   if (!data || error) {
     console.error("Error parsing request data:", error);
-    return new NextResponse(JSON.stringify({ error: "Invalid request data" }), { status: 400 });
+    return NextResponse.json({ error: "Invalid request data" }, { status: 400 });
   }
 
   const { machine_id, endpoint, build_log } = data;
