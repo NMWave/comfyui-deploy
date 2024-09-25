@@ -19,6 +19,7 @@ from urllib.parse import parse_qs
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Scope, Receive, Send
 import re
+import traceback
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -232,14 +233,15 @@ async def create_machine(item: Item):
     global last_activity_time
     last_activity_time = time.time()
     logger.info(f"Extended inactivity time to {global_timeout}")
+    logger.info(f"Received create request for machine_id: {item.machine_id}")
+    logger.debug(f"Create request data: {json.dumps(item.dict(), indent=2, default=str)}")
 
     if item.machine_id in machine_id_status and machine_id_status[item.machine_id]:
+        logger.warning(f"Build already in progress for machine_id: {item.machine_id}")
         return JSONResponse(status_code=400, content={"error": "Build already in progress."})
 
-    # Run the building logic in a separate thread
-    # future = executor.submit(build_logic, item)
     task = asyncio.create_task(build_logic(item))
-
+    logger.info(f"Build queued for machine_id: {item.machine_id}")
     return JSONResponse(status_code=200, content={"message": "Build Queued", "build_machine_instance_id": fly_instance_id})
 
 
@@ -298,6 +300,7 @@ machine_logs_cache = {}
 async def build_logic(item: Item):
     logger.info(f"Starting build for machine_id: {item.machine_id}")
     logger.info(f"Callback URL: {item.callback_url}")
+    logger.info(f"Build details: {json.dumps(item.dict(), indent=2, default=str)}")
 
     # Deploy to modal
     folder_path = f"/app/builds/{item.machine_id}"
@@ -466,6 +469,7 @@ async def build_logic(item: Item):
         logger.info(f"Final URL: {url}")
     except Exception as e:
         logger.error(f"Error during build process: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         await _send_callback(item.callback_url, item.machine_id, None, machine_logs, error=str(e))
     finally:
         if item.machine_id in machine_logs_cache:
@@ -485,11 +489,15 @@ async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
         
         logger.info(f"Callback data: {json.dumps(callback_data, indent=2)}")
         
-        response = requests.post(callback_url, json=callback_data)
+        response = requests.post(callback_url, json=callback_data, timeout=30)
+        logger.info(f"Callback response status code: {response.status_code}")
+        logger.info(f"Callback response content: {response.text}")
+        
         response.raise_for_status()
-        logger.info(f"Callback sent successfully. Status code: {response.status_code}")
-    except Exception as e:
+        logger.info("Callback sent successfully.")
+    except requests.RequestException as e:
         logger.error(f"Error sending callback: {str(e)}")
+        logger.error(f"Callback error details: {traceback.format_exc()}")
 
 
 def start_loop(loop):
