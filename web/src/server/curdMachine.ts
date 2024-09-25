@@ -250,27 +250,40 @@ export const deleteMachine = withServerPromise(
       where: eq(machinesTable.id, machine_id),
     });
 
-    if (machine?.type === "comfy-deploy-serverless") {
-      // Call remote builder to stop the app on modal
-      const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/stop-app`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          machine_id: machine_id,
-        }),
-      });
+    if (!machine) {
+      throw new Error("Machine not found");
+    }
 
-      if (!result.ok) {
-        const error_log = await result.text();
-        throw new Error(`Error: ${result.statusText} ${error_log}`);
+    if (machine.type === "comfy-deploy-serverless") {
+      try {
+        const result = await fetch(`${process.env.MODAL_BUILDER_URL!}/stop-app`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            machine_id: machine_id,
+          }),
+        });
+
+        if (!result.ok) {
+          const error_log = await result.text();
+          throw new Error(`Error stopping app: ${result.statusText} ${error_log}`);
+        }
+      } catch (error) {
+        console.error("Error stopping serverless app:", error);
+        // Continue with deletion even if stopping fails
       }
     }
 
-    await db.delete(machinesTable).where(eq(machinesTable.id, machine_id));
-    revalidatePath("/machines");
-    return { message: "Machine Deleted" };
+    try {
+      await db.delete(machinesTable).where(eq(machinesTable.id, machine_id));
+      revalidatePath("/machines");
+      return { message: "Machine Deleted" };
+    } catch (error) {
+      console.error("Error deleting machine from database:", error);
+      throw new Error("Failed to delete machine from database");
+    }
   }
 );
 
