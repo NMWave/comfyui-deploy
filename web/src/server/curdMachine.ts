@@ -271,12 +271,12 @@ export const deleteMachine = withServerPromise(
 
         if (!result.ok) {
           const error_log = await result.text();
-          throw new Error(`Error deleting app from Modal: ${result.statusText} ${error_log}`);
+          console.error(`Error response from Modal: ${error_log}`);
+          throw new Error(`Error deleting app from Modal: ${result.statusText}`);
         }
       } catch (error) {
         console.error("Error deleting serverless app from Modal:", error);
-        // We might want to consider not continuing with deletion if this fails
-        throw new Error("Failed to delete app from Modal");
+        throw new Error(`Failed to delete app from Modal: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
@@ -286,7 +286,7 @@ export const deleteMachine = withServerPromise(
       return { message: "Machine Deleted Successfully" };
     } catch (error) {
       console.error("Error deleting machine from database:", error);
-      throw new Error("Failed to delete machine from database");
+      throw new Error(`Failed to delete machine from database: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 );

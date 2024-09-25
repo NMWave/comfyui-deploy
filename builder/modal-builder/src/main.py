@@ -294,6 +294,9 @@ machine_logs_cache = {}
 
 
 async def build_logic(item: Item):
+    logger.info(f"Starting build for machine_id: {item.machine_id}")
+    logger.info(f"Callback URL: {item.callback_url}")
+
     # Deploy to modal
     folder_path = f"/app/builds/{item.machine_id}"
     machine_id_status[item.machine_id] = True
@@ -437,43 +440,54 @@ async def build_logic(item: Item):
     if item.machine_id in machine_id_status:
         machine_id_status[item.machine_id] = False
 
-    # Check for errors
-    if process.returncode != 0:
-        logger.error("An error occurred during deployment.")
-        machine_logs.append({
-            "logs": "Unable to build the app image.",
-            "timestamp": time.time()
-        })
-        requests.post(item.callback_url, json={
-                      "machine_id": item.machine_id, "build_log": json.dumps(machine_logs)})
+    try:
+        # Check for errors
+        if process.returncode != 0:
+            logger.error("An error occurred during deployment.")
+            machine_logs.append({
+                "logs": "Unable to build the app image.",
+                "timestamp": time.time()
+            })
+            await _send_callback(item.callback_url, item.machine_id, None, machine_logs, error="Deployment failed")
+        elif url is None:
+            error_message = "App image built, but url is None, unable to parse the url."
+            logger.error(error_message)
+            machine_logs.append({
+                "logs": error_message,
+                "timestamp": time.time()
+            })
+            await _send_callback(item.callback_url, item.machine_id, None, machine_logs, error=error_message)
+        else:
+            await _send_callback(item.callback_url, item.machine_id, url, machine_logs)
 
+        logger.info("Deployment completed successfully.")
+        logger.info(f"Final URL: {url}")
+    except Exception as e:
+        logger.error(f"Error during build process: {str(e)}")
+        await _send_callback(item.callback_url, item.machine_id, None, machine_logs, error=str(e))
+    finally:
         if item.machine_id in machine_logs_cache:
             del machine_logs_cache[item.machine_id]
 
-        return
-
-    if url is None:
-        error_message = "App image built, but url is None, unable to parse the url."
-        logger.error(error_message)
-        machine_logs.append({
-            "logs": error_message,
-            "timestamp": time.time()
-        })
-        requests.post(item.callback_url, json={
-                      "machine_id": item.machine_id, "build_log": json.dumps(machine_logs)})
-
-        if item.machine_id in machine_logs_cache:
-            del machine_logs_cache[item.machine_id]
-
-        return
-
-    requests.post(item.callback_url, json={
-                  "machine_id": item.machine_id, "endpoint": url, "build_log": json.dumps(machine_logs)})
-    if item.machine_id in machine_logs_cache:
-        del machine_logs_cache[item.machine_id]
-
-    logger.info("Deployment completed successfully.")
-    logger.info(f"Final URL: {url}")
+async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
+    try:
+        logger.info(f"Attempting to send callback to: {callback_url}")
+        callback_data = {
+            "machine_id": machine_id,
+            "build_log": json.dumps(logs)
+        }
+        if endpoint:
+            callback_data["endpoint"] = endpoint
+        if error:
+            callback_data["error"] = error
+        
+        logger.info(f"Callback data: {json.dumps(callback_data, indent=2)}")
+        
+        response = requests.post(callback_url, json=callback_data)
+        response.raise_for_status()
+        logger.info(f"Callback sent successfully. Status code: {response.status_code}")
+    except Exception as e:
+        logger.error(f"Error sending callback: {str(e)}")
 
 
 def start_loop(loop):
