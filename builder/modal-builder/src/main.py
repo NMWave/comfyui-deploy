@@ -477,7 +477,7 @@ async def build_logic(item: Item):
 # Configure logging
 logger = logging.getLogger(__name__)
 
-async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
+def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
     try:
         logger.info(f"Attempting to send callback to: {callback_url}")
         
@@ -496,16 +496,25 @@ async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
         # Generate JWT
         payload = {
             "machine_id": machine_id,
-            "endpoint": endpoint,
             "iat": int(time.time())
         }
-        token = jwt.encode(payload, os.environ.get("JWT_SECRET"), algorithm="HS256")
+        if endpoint:
+            payload["endpoint"] = endpoint  # Include only if endpoint is not None
+        
+        secret = os.environ.get("JWT_SECRET")
+        if not secret:
+            logger.error("JWT_SECRET environment variable is not set.")
+            raise ValueError("JWT_SECRET is not defined.")
+        
+        token = jwt.encode(payload, secret, algorithm="HS256")
+        logger.info(f"Generated JWT: {token}")
         
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {token}"
         }
         
+        # Send POST request with JWT in headers
         response = requests.post(callback_url, json=callback_data, headers=headers, timeout=30)
         logger.info(f"Callback response status code: {response.status_code}")
         logger.info(f"Callback response content: {response.text}")
@@ -515,6 +524,9 @@ async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
     except requests.RequestException as e:
         logger.error(f"Error sending callback: {str(e)}")
         logger.error(f"Callback error details: {traceback.format_exc()}")
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(f"Error details: {traceback.format_exc()}")
 
 
 def start_loop(loop):
