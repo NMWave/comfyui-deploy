@@ -20,10 +20,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Scope, Receive, Send
 import re
 import traceback
+import jwt
 
 from concurrent.futures import ThreadPoolExecutor
-
-#TEST
 
 # executor = ThreadPoolExecutor(max_workers=5)
 
@@ -475,9 +474,14 @@ async def build_logic(item: Item):
         if item.machine_id in machine_logs_cache:
             del machine_logs_cache[item.machine_id]
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
 async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
     try:
         logger.info(f"Attempting to send callback to: {callback_url}")
+        
+        # Prepare callback data
         callback_data = {
             "machine_id": machine_id,
             "build_log": json.dumps(logs)
@@ -489,7 +493,20 @@ async def _send_callback(callback_url, machine_id, endpoint, logs, error=None):
         
         logger.info(f"Callback data: {json.dumps(callback_data, indent=2)}")
         
-        response = requests.post(callback_url, json=callback_data, timeout=30)
+        # Generate JWT
+        payload = {
+            "machine_id": machine_id,
+            "endpoint": endpoint,
+            "iat": int(time.time())
+        }
+        token = jwt.encode(payload, os.environ.get("JWT_SECRET"), algorithm="HS256")
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        
+        response = requests.post(callback_url, json=callback_data, headers=headers, timeout=30)
         logger.info(f"Callback response status code: {response.status_code}")
         logger.info(f"Callback response content: {response.text}")
         
